@@ -1,7 +1,7 @@
 import { Chess } from "chess.js";
 const $ = id => document.getElementById(id);
 const STORE="chesslearner.v2";
-const defaults={appTheme:"light",boardTheme:"classic",pieceTheme:"unicode",side:"w",level:2,games:[],mistakes:[],frequencies:{},trainedGames:0};
+const defaults={appTheme:"light",boardTheme:"classic",pieceTheme:"cburnett",side:"w",level:2,games:[],mistakes:[],frequencies:{},trainedGames:0};
 let saved={};try{saved=JSON.parse(localStorage.getItem(STORE)||"{}")}catch(e){}
 let state={...defaults,...saved};
 let chess=new Chess(), flipped=false, selected=null, thinking=false, gameMoves=[], games=state.games||[], frequencies=state.frequencies||{}, trainedGames=state.trainedGames||0, mistakes=state.mistakes||[];
@@ -13,7 +13,7 @@ function applySettings(){document.body.dataset.theme=state.appTheme;document.bod
 function render(){
  const board=$("board");board.innerHTML="";const rows=chess.board();
  for(let n=0;n<64;n++){const sq=flipped?63-n:n,r=Math.floor(sq/8),c=sq%8,p=rows[r][c],name=files[c]+(8-r),el=document.createElement("button");el.className="square "+((r+c)%2?"dark":"light");el.setAttribute("aria-label",name);
- if(p){el.textContent=glyphs[state.pieceTheme]?.[p.color]?.[p.type]||glyphs.unicode[p.color][p.type];el.classList.add(p.color==="w"?"white-piece":"black-piece")}
+ if(p){const code=p.color+(p.type==="n"?"N":p.type.toUpperCase());const img=document.createElement("img");img.className="piece-img";img.alt=(p.color==="w"?"Белая ":"Чёрная ")+({k:"король",q:"ферзь",r:"ладья",b:"слон",n:"конь",p:"пешка"}[p.type]);img.draggable=false;img.src="https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/"+encodeURIComponent(state.pieceTheme)+"/"+code+".svg";img.onerror=()=>{img.onerror=null;img.src="https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/"+code+".svg"};el.appendChild(img);el.classList.add(p.color==="w"?"white-piece":"black-piece")}
  if(selected===name)el.classList.add("selected");if(chess.history({verbose:true}).at(-1)?.to===name)el.classList.add("last-move");el.onclick=()=>onSquare(name);board.appendChild(el)}
  $("turn").textContent=chess.isGameOver()?(chess.isCheckmate()?"Мат":chess.isDraw()?"Ничья":"Партия завершена"):(chess.turn()==="w"?"Ход белых":"Ход чёрных");
  $("ply").textContent=chess.history().length;$("material").textContent=chess.board().flat().reduce((sum,p)=>sum+(p?(p.color==="w"?1:-1)*values[p.type]:0),0);

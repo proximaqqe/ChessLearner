@@ -1,7 +1,7 @@
 import { Chess } from "chess.js";
 const $ = id => document.getElementById(id);
 const STORE="chesslearner.v2";
-const defaults={appTheme:"light",boardTheme:"classic",pieceTheme:"cburnett",side:"w",level:2,games:[],mistakes:[],frequencies:{},trainedGames:0};
+const defaults={appTheme:"dark",boardTheme:"classic",pieceTheme:"cburnett",side:"w",level:2,games:[],mistakes:[],frequencies:{},trainedGames:0};
 let saved={};try{saved=JSON.parse(localStorage.getItem(STORE)||"{}")}catch(e){}
 let state={...defaults,...saved};
 let chess=new Chess(), flipped=false, selected=null, legalTargets=[], thinking=false, gameMoves=[], games=state.games||[], frequencies=state.frequencies||{}, trainedGames=state.trainedGames||0, mistakes=state.mistakes||[];

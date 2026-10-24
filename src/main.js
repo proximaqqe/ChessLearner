@@ -1,63 +1,45 @@
 import { Chess } from "chess.js";
-
 const $ = id => document.getElementById(id);
-let chess = new Chess(), flipped = false, selected = null, games = [], frequencies = {}, trainedGames = 0;
-const glyph = { w:{k:"♔",q:"♕",r:"♖",b:"♗",n:"♘",p:"♙"}, b:{k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"} };
-const files = "abcdefgh";
+const STORE="chesslearner.v2";
+const defaults={appTheme:"light",boardTheme:"classic",pieceTheme:"unicode",side:"w",level:2,games:[],mistakes:[],frequencies:{},trainedGames:0};
+let saved={};try{saved=JSON.parse(localStorage.getItem(STORE)||"{}")}catch(e){}
+let state={...defaults,...saved};
+let chess=new Chess(), flipped=false, selected=null, thinking=false, gameMoves=[], games=state.games||[], frequencies=state.frequencies||{}, trainedGames=state.trainedGames||0, mistakes=state.mistakes||[];
+const files="abcdefgh", values={p:100,n:320,b:335,r:500,q:900,k:0};
+const glyphs={unicode:{w:{k:"♔",q:"♕",r:"♖",b:"♗",n:"♘",p:"♙"},b:{k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"}},classic:{w:{k:"♔",q:"♕",r:"♖",b:"♗",n:"♘",p:"♙"},b:{k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"}}};
+function persist(){state={...state,games,frequencies,trainedGames,mistakes};try{localStorage.setItem(STORE,JSON.stringify(state))}catch(e){notify("Память устройства заполнена — экспортируйте партии")}}
 function notify(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2800)}
+function applySettings(){document.body.dataset.theme=state.appTheme;document.body.dataset.board=state.boardTheme;document.body.dataset.pieces=state.pieceTheme;$("app-theme").value=state.appTheme;$("board-theme").value=state.boardTheme;$("piece-theme").value=state.pieceTheme;$("side").value=state.side;$("level").value=String(state.level);$("theme-toggle").textContent=state.appTheme==="dark"?"☀ Светлая тема":"☾ Тёмная тема"}
 function render(){
- const board=$("board"); board.innerHTML="";
- const rows=chess.board();
- for(let n=0;n<64;n++){
-  const sq=flipped?63-n:n, r=Math.floor(sq/8), c=sq%8, p=rows[r][c], el=document.createElement("button");
-  el.className="square "+((r+c)%2?"dark":"light"); el.setAttribute("aria-label",files[c]+(8-r));
-  if(p){el.textContent=glyph[p.color][p.type];el.classList.add(p.color==="w"?"white-piece":"black-piece")}
-  if(selected===files[c]+(8-r))el.classList.add("selected");
-  el.onclick=()=>onSquare(files[c]+(8-r));board.appendChild(el);
- }
- $("turn").textContent=chess.turn()==="w"?"Ход белых":"Ход чёрных";
- $("ply").textContent=chess.history().length;
- const vals={p:1,n:3,b:3,r:5,q:9,k:0};let mat=0;
- chess.board().flat().forEach(p=>{if(p&&p.color==="w")mat+=vals[p.type]});
- $("material").textContent=mat; $("moves").textContent=chess.history().length?chess.history().map((m,i)=>(i%2===0?Math.floor(i/2+1)+". ":"")+m).join(" "):"Партия не началась";
- $("trained").textContent=trainedGames;$("observations").textContent=Object.values(frequencies).reduce((a,b)=>a+b,0);
- $("gcount").textContent=games.length;$("mcount").textContent=games.reduce((a,g)=>a+g.moves.length,0);$("unique").textContent=Object.keys(frequencies).length;
- $("model-size").textContent=(JSON.stringify(frequencies).length/1024).toFixed(1)+" KB";
- renderGames();
+ const board=$("board");board.innerHTML="";const rows=chess.board();
+ for(let n=0;n<64;n++){const sq=flipped?63-n:n,r=Math.floor(sq/8),c=sq%8,p=rows[r][c],name=files[c]+(8-r),el=document.createElement("button");el.className="square "+((r+c)%2?"dark":"light");el.setAttribute("aria-label",name);
+ if(p){el.textContent=glyphs[state.pieceTheme]?.[p.color]?.[p.type]||glyphs.unicode[p.color][p.type];el.classList.add(p.color==="w"?"white-piece":"black-piece")}
+ if(selected===name)el.classList.add("selected");if(chess.history({verbose:true}).at(-1)?.to===name)el.classList.add("last-move");el.onclick=()=>onSquare(name);board.appendChild(el)}
+ $("turn").textContent=chess.isGameOver()?(chess.isCheckmate()?"Мат":chess.isDraw()?"Ничья":"Партия завершена"):(chess.turn()==="w"?"Ход белых":"Ход чёрных");
+ $("ply").textContent=chess.history().length;$("material").textContent=chess.board().flat().reduce((sum,p)=>sum+(p?(p.color==="w"?1:-1)*values[p.type]:0),0);
+ $("moves").textContent=chess.history().length?chess.history().map((m,i)=>(i%2===0?Math.floor(i/2+1)+". ":"")+m).join(" "):"Партия не началась";
+ $("trained").textContent=trainedGames;$("observations").textContent=Object.values(frequencies).reduce((a,b)=>a+b,0);$("gcount").textContent=games.length;$("mcount").textContent=games.reduce((a,g)=>a+g.moves.length,0);$("unique").textContent=Object.keys(frequencies).length;$("model-size").textContent=(JSON.stringify(frequencies).length/1024).toFixed(1)+" KB";$("mistake-count").textContent=mistakes.length;renderGames();
 }
-function onSquare(sq){
- if(selected){try{chess.move({from:selected,to:sq,promotion:"q"});selected=null;render();return}catch(e){}}
- const p=chess.get(sq); if(p&&p.color===chess.turn()){selected=sq;render()}else{selected=null;render()}
-}
-function parsePgn(text,name){
- const blocks=text.split(/(?=\[Event\s)/i).map(x=>x.trim()).filter(Boolean), added=[];
- for(const raw of blocks){const c=new Chess();try{c.loadPgn(raw)}catch(e){continue}
- const moves=c.history();if(!moves.length)continue;
- const headers=c.getHeaders(); const g={name:headers.Event||name,white:headers.White||"Белые",black:headers.Black||"Чёрные",date:headers.Date||"—",result:headers.Result||"*",moves,raw};
- added.push(g);for(const m of moves)frequencies[m]=(frequencies[m]||0)+1;
- }
- games.push(...added);return added.length;
-}
-async function importFiles(list){let count=0;for(const f of list){try{count+=parsePgn(await f.text(),f.name)}catch(e){}}
- $("import-status").textContent=`Импортировано партий: ${count}.`;notify(`Импортировано партий: ${count}`);render()}
-function renderGames(){$("game-list").innerHTML=games.length?games.slice().reverse().map(g=>`<div class="game"><b>${escapeHtml(g.name)}</b><div>${escapeHtml(g.white)} — ${escapeHtml(g.black)} · ${g.moves.length} полуходов · ${escapeHtml(g.result)}</div></div>`).join(""):"Пока нет партий. Импортируйте PGN на вкладке «Доска»."}
+function onSquare(sq){if(thinking||chess.isGameOver()||chess.turn()!==state.side)return;if(selected){try{const m=chess.move({from:selected,to:sq,promotion:"q"});if(m){selected=null;afterHumanMove(m);return}}catch(e){}}
+ const p=chess.get(sq);selected=p&&p.color===state.side?sq:null;render()}
+function afterHumanMove(m){gameMoves.push(m.san);if(m.captured||m.san.includes("+")||m.san.includes("#")){mistakes.push({fen:chess.fen(),move:m.san,at:Date.now(),note:"Проверьте, была ли тактика оправданна."});persist()}render();if(chess.isGameOver()){finishGame();return}window.setTimeout(botMove,100)}
+function evaluate(c){if(c.isCheckmate())return c.turn()==="w"?-100000:100000;if(c.isDraw())return 0;let score=0;const b=c.board();for(let r=0;r<8;r++)for(let f=0;f<8;f++){const p=b[r][f];if(!p)continue;const sign=p.color==="w"?1:-1,center=3.5-(Math.abs(3.5-f)+Math.abs(3.5-r))/2;score+=sign*(values[p.type]+(p.type==="n"||p.type==="b"?center*9: p.type==="p"?(p.color==="w"?(6-r):(r-1))*7:0));}return score}
+function minimax(c,depth,alpha,beta,maximizing){if(depth===0||c.isGameOver())return evaluate(c);const ms=c.moves({verbose:true});ms.sort((a,b)=>((b.captured?values[b.captured]:0)-(a.captured?values[a.captured]:0)));if(maximizing){let best=-Infinity;for(const m of ms){c.move(m);const v=minimax(c,depth-1,alpha,beta,false);c.undo();best=Math.max(best,v);alpha=Math.max(alpha,best);if(beta<=alpha)break}return best}else{let best=Infinity;for(const m of ms){c.move(m);const v=minimax(c,depth-1,alpha,beta,true);c.undo();best=Math.min(best,v);beta=Math.min(beta,best);if(beta<=alpha)break}return best}}
+function botMove(){if(chess.isGameOver()||chess.turn()===state.side)return;thinking=true;$("bot-status").textContent="Бот анализирует позицию…";const startFen=chess.fen();setTimeout(()=>{if(chess.fen()!==startFen||chess.isGameOver()){thinking=false;return}const c=new Chess(chess.fen()),moves=c.moves({verbose:true});if(!moves.length){thinking=false;render();return}
+ const depth=Number(state.level),maximizing=c.turn()==="w";let best=maximizing?-Infinity:Infinity,candidates=[];for(const m of moves){c.move(m);let score=minimax(c,depth-1,-Infinity,Infinity,!maximizing);c.undo();score+=(frequencies[m.san]||0)*0.1;if((maximizing&&score>best)||(!maximizing&&score<best)){best=score;candidates=[m]}else if(Math.abs(score-best)<0.01)candidates.push(m)}
+ const chosen=candidates[Math.floor(Math.random()*candidates.length)]||moves[0];chess.move(chosen);gameMoves.push(chosen.san);thinking=false;$("bot-status").textContent="Бот сделал ход. Сыграйте следующий ход.";render();if(chess.isGameOver())finishGame()},30)}
+function finishGame(){const result=chess.isCheckmate()?(chess.turn()===state.side?"Поражение":"Победа"): "Ничья";games.push({name:"Партия с ботом",white:state.side==="w"?"Вы":"Бот",black:state.side==="b"?"Вы":"Бот",date:new Date().toISOString().slice(0,10),result,moves:[...gameMoves],raw:""});persist();render();notify("Партия завершена: "+result)}
+function parsePgn(text,name){const blocks=text.split(/(?=\[Event\s)/i).map(x=>x.trim()).filter(Boolean),added=[];for(const raw of blocks){const c=new Chess();try{c.loadPgn(raw)}catch(e){continue}const moves=c.history();if(!moves.length)continue;const h=c.getHeaders();added.push({name:h.Event||name,white:h.White||"Белые",black:h.Black||"Чёрные",date:h.Date||"—",result:h.Result||"*",moves,raw});for(const m of moves)frequencies[m]=(frequencies[m]||0)+1}games.push(...added);return added.length}
+async function importFiles(list){let count=0;for(const f of list){try{count+=parsePgn(await f.text(),f.name)}catch(e){}}$("import-status").textContent="Импортировано партий: "+count+".";trainedGames+=count;persist();render();notify("Импортировано партий: "+count)}
+function renderGames(){$("game-list").innerHTML=games.length?games.slice().reverse().map(g=>'<div class="game"><b>'+escapeHtml(g.name)+'</b><div>'+escapeHtml(g.white)+' — '+escapeHtml(g.black)+' · '+g.moves.length+' полуходов · '+escapeHtml(g.result)+'</div></div>').join(""):"Пока нет партий. Импортируйте PGN на вкладке «Доска»."}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function download(data,name,type){const u=URL.createObjectURL(new Blob([data],{type})),a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
-$("flip").onclick=()=>{flipped=!flipped;render()};
-$("reset").onclick=()=>{chess=new Chess();selected=null;render();notify("Новая партия")};
-$("back").onclick=()=>{chess.undo();selected=null;render()};$("forward").onclick=()=>notify("Вперёд: сделайте ход или предложите ход модели.");
-$("suggest").onclick=()=>{const moves=chess.moves({verbose:true});if(!moves.length){notify("Партия завершена");return}
- const move=moves.map(m=>({m,score:(m.captured?({p:1,n:3,b:3,r:5,q:9}[m.captured]||0)*2:0)+(frequencies[m.san]||0)*.15+Math.random()})).sort((a,b)=>b.score-a.score)[0].m;
- chess.move(move);render();notify("Выполнен легальный демонстрационный ход.")};
-$("pgn").onchange=e=>importFiles(e.target.files);
-$("train").onclick=()=>{trainedGames=games.length;render();$("train-status").textContent=`Статистика обновлена по ${trainedGames} партиям. Это частотная модель, а не обучение нейросети.`;notify("Статистика обновлена")};
-$("clear").onclick=()=>{games=[];frequencies={};trainedGames=0;render();notify("Библиотека очищена")};
-$("export-pgn").onclick=()=>download(games.map(g=>g.raw).join("\n\n"),"chesslearner_games.pgn","application/x-chess-pgn");
-$("download").onclick=()=>{const f=$("format").value;let data,name,type;
- if(f==="json"){data=JSON.stringify({schema:"chesslearner.v1",model:{trainedGames,moveFrequencies:frequencies},games},null,2);name="chesslearner_model.json";type="application/json"}
- else if(f==="csv"){data="move,frequency\n"+Object.entries(frequencies).map(([k,v])=>`"${k.replace(/"/g,'""')}",${v}`).join("\n");name="move_frequencies.csv";type="text/csv"}
- else if(f==="pgn"){data=games.map(g=>g.raw).join("\n\n");name="games.pgn";type="application/x-chess-pgn"}
- else{data=JSON.stringify({name:"ChessLearner",protocol:"UCI",executable:false,note:"Configuration template only. Integrate a real UCI engine for play.",trainingData:"chesslearner_model.json"},null,2);name="uci_config.json";type="application/json"}
- download(data,name,type);notify("Экспорт подготовлен: "+name)};
+$("flip").onclick=()=>{flipped=!flipped;render()};$("reset").onclick=()=>{chess=new Chess();selected=null;gameMoves=[];thinking=false;if(chess.turn()!==state.side)botMove();render();notify("Новая партия")};
+$("back").onclick=()=>{if(thinking)return;chess.undo();if(chess.turn()!==state.side)chess.undo();selected=null;gameMoves=chess.history();render()};$("forward").onclick=()=>notify("Для перехода вперёд используйте историю партии после её завершения.");
+$("suggest").onclick=()=>{if(chess.isGameOver()){notify("Партия завершена");return}if(chess.turn()!==state.side){notify("Сейчас ход бота");return}const c=new Chess(chess.fen()),moves=c.moves({verbose:true});let best=-Infinity,chosen=moves[0];for(const m of moves){c.move(m);const v=minimax(c,Math.max(0,Number(state.level)-1),-Infinity,Infinity,false);c.undo();if(v>best){best=v;chosen=m}}if(chosen){chess.move(chosen);gameMoves.push(chosen.san);afterHumanMove(chosen);notify("Ход выбран поиском по дереву вариантов")}};
+$("pgn").onchange=e=>importFiles(e.target.files);$("train").onclick=()=>{trainedGames=games.length;persist();render();$("train-status").textContent="Обновлена статистика по "+trainedGames+" партиям. Бот использует поиск ходов и частоты импортированных SAN-ходов; веса движка не переобучаются.";notify("Статистика обновлена")};
+$("clear").onclick=()=>{games=[];frequencies={};trainedGames=0;mistakes=[];persist();render();notify("Библиотека очищена")};$("export-pgn").onclick=()=>download(games.filter(g=>g.raw).map(g=>g.raw).join("\n\n"),"chesslearner_games.pgn","application/x-chess-pgn");
+$("download").onclick=()=>{const f=$("format").value,data=f==="json"?JSON.stringify({schema:"chesslearner.v2",trainedGames,moveFrequencies:frequencies,mistakes,games},null,2):f==="csv"?"move,frequency\n"+Object.entries(frequencies).map(([k,v])=>'"'+k.replace(/"/g,'""')+'",'+v).join("\n"):games.filter(g=>g.raw).map(g=>g.raw).join("\n\n");download(data,f==="json"?"chesslearner_model.json":f==="csv"?"move_frequencies.csv":"games.pgn",f==="json"?"application/json":f==="csv"?"text/csv":"application/x-chess-pgn")};
+$("theme-toggle").onclick=()=>{state.appTheme=state.appTheme==="dark"?"light":"dark";persist();applySettings()};for(const [id,key] of [["app-theme","appTheme"],["board-theme","boardTheme"],["piece-theme","pieceTheme"],["side","side"],["level","level"]])$(id).onchange=e=>{state[key]=key==="level"?Number(e.target.value):e.target.value;persist();applySettings();if(key==="side"){chess=new Chess();selected=null;gameMoves=[];if(chess.turn()!==state.side)botMove()}render()};
 document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("hidden",v.id!==b.dataset.view))});
-render();
+applySettings();render();if(chess.turn()!==state.side)botMove();

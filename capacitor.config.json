@@ -1,0 +1,6 @@
+{
+  "appId": "com.chesslearner.app",
+  "appName": "ChessLearner",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

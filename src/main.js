@@ -89,6 +89,7 @@ function renderFreeBoard(){
 $("free-reset").onclick=()=>{freeChess=new Chess();freeSelected=null;renderFreeBoard()};
 $("free-undo").onclick=()=>{if(freeChess.history().length){freeChess.undo();freeSelected=null;renderFreeBoard()}};
 $("free-flip").onclick=()=>{freeFlipped=!freeFlipped;renderFreeBoard()};
-\napplySettings();renderFreeBoard();render();analyzeFen(chess.fen(),10);if(chess.turn()!==state.side)botMove();
+
+applySettings();renderFreeBoard();render();analyzeFen(chess.fen(),10);if(chess.turn()!==state.side)botMove();
 $("analysisRefresh")?.addEventListener("click",()=>analyzeFen(chess.fen(),14));
 $("analysisRun")?.addEventListener("click",()=>analyzeFen(chess.fen(),18));

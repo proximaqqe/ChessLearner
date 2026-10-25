@@ -76,3 +76,6 @@ body[data-theme=light] .controls button{background:var(--soft);color:var(--text)
 a{color:var(--accent)}
 @media(max-width:900px){main{padding:16px 14px 32px}.layout{grid-template-columns:minmax(0,1fr) minmax(250px,.85fr);gap:12px}}
 @media(max-width:700px){body{padding-bottom:16px}header{padding:12px 14px}main{padding:12px 10px 28px}nav{width:100%;overflow-x:auto;flex-wrap:nowrap;padding:4px;margin-bottom:13px}.tab{white-space:nowrap;padding:9px 11px;font-size:13px}.layout{grid-template-columns:minmax(0,1fr);gap:12px}.card{padding:13px}.board{border-width:3px}.square{font-size:clamp(22px,9vw,42px)}.controls button{font-size:12px}.stats{gap:8px}.stats>div{padding:10px}}
+
+/* Stable touch/mouse drag feedback */
+.board{touch-action:none;-webkit-user-select:none;user-select:none}.square{touch-action:none;-webkit-user-select:none;user-select:none}.drag-piece-ghost{position:fixed;left:0;top:0;z-index:10000;pointer-events:none;object-fit:contain;transform:scale(1.08);filter:drop-shadow(0 5px 5px #0008);will-change:left,top}

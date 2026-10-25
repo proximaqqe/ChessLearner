@@ -82,3 +82,16 @@ a{color:var(--accent)}
 
 /* Hide the source only while its floating drag ghost is active. */
 .square.dragging-source .piece-img{opacity:0!important}.drag-piece-ghost{pointer-events:none!important;touch-action:none!important;user-select:none!important;-webkit-user-drag:none!important}
+
+
+/* Smooth move travel, capture burst, and check warning */
+.move-animation-overlay{position:fixed;z-index:10020;pointer-events:none;object-fit:contain;will-change:transform,opacity;filter:drop-shadow(0 5px 5px #0007)}
+.moving-piece-animation{transform-origin:center center}
+.captured-piece-animation{transform-origin:center center;filter:drop-shadow(0 0 7px #ff5a4e) saturate(1.2)}
+.square.king-in-check{z-index:3;overflow:visible;animation:king-check-pulse 1.05s ease-in-out infinite}
+.square.king-in-check::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:#ff202033;box-shadow:inset 0 0 0 3px #ff3434,inset 0 0 17px 7px #ff1d1d99;animation:king-check-glow 1.05s ease-in-out infinite}
+.square.king-in-check .piece-img{filter:drop-shadow(0 0 5px #ff2424) drop-shadow(0 0 10px #ff2424);animation:king-piece-glow 1.05s ease-in-out infinite}
+@keyframes king-check-pulse{0%,100%{box-shadow:inset 0 0 0 2px #ff3030}50%{box-shadow:inset 0 0 0 4px #ff6969}}
+@keyframes king-check-glow{0%,100%{opacity:.65}50%{opacity:1}}
+@keyframes king-piece-glow{0%,100%{filter:drop-shadow(0 0 3px #ff2424)}50%{filter:drop-shadow(0 0 8px #ff2424) drop-shadow(0 0 13px #ff2424)}}
+@media(prefers-reduced-motion:reduce){.square.king-in-check,.square.king-in-check::before,.square.king-in-check .piece-img{animation:none!important}.move-animation-overlay{display:none!important}}

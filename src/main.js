@@ -6,7 +6,8 @@ let saved={};try{saved=JSON.parse(localStorage.getItem(STORE)||"{}")}catch(e){}
 let state={...defaults,...saved};
 let chess=new Chess(), flipped=false, selected=null, legalTargets=[], thinking=false, gameMoves=[], games=state.games||[], frequencies=state.frequencies||{}, trainedGames=state.trainedGames||0, mistakes=state.mistakes||[];
 let clockRemaining={w:600,b:600},clockStarted=false,clockInterval=null,clockExpired=false;
-const files="abcdefgh", values={p:100,n:320,b:335,r:500,q:900,k:0};\nconst lowPowerDevice=(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4)||(navigator.deviceMemory&&navigator.deviceMemory<=4)||/Android/i.test(navigator.userAgent);\nconst pieceUrlCache=new Map();\nfunction pieceUrl(code){const theme=state.pieceTheme||"cburnett",key=theme+":"+code;if(!pieceUrlCache.has(key))pieceUrlCache.set(key,"https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/"+encodeURIComponent(theme)+"/"+code+".svg");return pieceUrlCache.get(key)}
+const files="abcdefgh", values={p:100,n:320,b:335,r:500,q:900,k:0};
+const lowPowerDevice=(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4)||(navigator.deviceMemory&&navigator.deviceMemory<=4)||/Android/i.test(navigator.userAgent);\nconst pieceUrlCache=new Map();\nfunction pieceUrl(code){const theme=state.pieceTheme||"cburnett",key=theme+":"+code;if(!pieceUrlCache.has(key))pieceUrlCache.set(key,"https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/"+encodeURIComponent(theme)+"/"+code+".svg");return pieceUrlCache.get(key)}
 const glyphs={unicode:{w:{k:"♔",q:"♕",r:"♖",b:"♗",n:"♘",p:"♙"},b:{k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"}},classic:{w:{k:"♔",q:"♕",r:"♖",b:"♗",n:"♘",p:"♙"},b:{k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"}}};
 function formatClock(){return ""}
 function updateClock(){}

@@ -95,3 +95,9 @@ a{color:var(--accent)}
 @keyframes king-check-glow{0%,100%{opacity:.65}50%{opacity:1}}
 @keyframes king-piece-glow{0%,100%{filter:drop-shadow(0 0 3px #ff2424)}50%{filter:drop-shadow(0 0 8px #ff2424) drop-shadow(0 0 13px #ff2424)}}
 @media(prefers-reduced-motion:reduce){.square.king-in-check,.square.king-in-check::before,.square.king-in-check .piece-img{animation:none!important}.move-animation-overlay{display:none!important}}
+
+
+/* Bold typography throughout the app, including controls and helper text. */
+body{font-weight:700}
+button,select,input,textarea{font-weight:700}
+.brand small,.hint,.move-list,.game,.game div,.settings-grid label,.stats small,#toast{font-weight:700}

@@ -79,3 +79,6 @@ a{color:var(--accent)}
 
 /* Stable touch/mouse drag feedback */
 .board{touch-action:none;-webkit-user-select:none;user-select:none}.square{touch-action:none;-webkit-user-select:none;user-select:none}.drag-piece-ghost{position:fixed;left:0;top:0;z-index:10000;pointer-events:none;object-fit:contain;transform:scale(1.08);filter:drop-shadow(0 5px 5px #0008);will-change:left,top}
+
+/* Hide the source only while its floating drag ghost is active. */
+.square.dragging-source .piece-img{opacity:0!important}.drag-piece-ghost{pointer-events:none!important;touch-action:none!important;user-select:none!important;-webkit-user-drag:none!important}
